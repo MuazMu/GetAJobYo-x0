@@ -146,3 +146,101 @@ export async function sendApplicationEmail(
     return false
   }
 }
+
+// Add a new function to send application status update emails
+export async function sendApplicationStatusEmail(
+  applicationId: string,
+  status: string,
+  feedbackNote?: string,
+): Promise<boolean> {
+  try {
+    const supabase = createBrowserClient()
+
+    // Get application details with job and user info
+    const { data: application, error: appError } = await supabase
+      .from("applications")
+      .select(`
+        id,
+        user_id,
+        job_id,
+        cover_letter,
+        user:users (id, email, full_name),
+        job:jobs (id, title, company, location)
+      `)
+      .eq("id", applicationId)
+      .single()
+
+    if (appError) throw appError
+
+    // Prepare email content
+    const emailContent = {
+      to: application.user.email,
+      subject: `Application ${status === "accepted" ? "Accepted" : status === "rejected" ? "Rejected" : "Status Update"}: ${application.job.title} at ${application.job.company}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+          <h2 style="color: ${status === "accepted" ? "#16a34a" : status === "rejected" ? "#dc2626" : "#2563eb"}; border-bottom: 1px solid #eaeaea; padding-bottom: 10px;">
+            Application ${status === "accepted" ? "Accepted" : status === "rejected" ? "Rejected" : "Status Update"}
+          </h2>
+          
+          <p>Dear ${application.user.full_name || "Applicant"},</p>
+          
+          <p>Your application for <strong>${application.job.title}</strong> at <strong>${application.job.company}</strong> has been 
+          ${status === "accepted" ? "accepted" : status === "rejected" ? "rejected" : `updated to "${status}"`}.</p>
+          
+          ${
+            feedbackNote
+              ? `
+          <p><strong>Feedback:</strong></p>
+          <p>${feedbackNote}</p>
+          `
+              : ""
+          }
+          
+          ${
+            status === "accepted"
+              ? `
+          <p>We will contact you shortly with next steps.</p>
+          <p>Congratulations!</p>
+          `
+              : status === "rejected"
+                ? `
+          <p>We appreciate your interest and wish you the best in your job search.</p>
+          `
+                : status === "interviewing"
+                  ? `
+          <p>We would like to schedule an interview with you. Someone from our team will be in touch soon.</p>
+          `
+                  : `
+          <p>Thank you for your application.</p>
+          `
+          }
+          
+          <p>Best regards,<br>The ${application.job.company} Team</p>
+          
+          <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #eaeaea; font-size: 0.8em; color: #777; text-align: center;">
+            <p>This is an automated message from GetAJobYo. Please do not reply to this email.</p>
+          </div>
+        </div>
+      `,
+    }
+
+    // Send email using the API route
+    const response = await fetch("/api/send-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(emailContent),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || "Failed to send email")
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error sending application status email:", error)
+    return false
+  }
+}

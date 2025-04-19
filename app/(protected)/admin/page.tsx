@@ -15,7 +15,20 @@ import { PageTransition } from "@/components/page-transition"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useToast } from "@/hooks/use-toast"
 import { motion } from "framer-motion"
-import { Plus, Trash2, Edit, Check, X, Building, MapPin, DollarSign, Briefcase, Users, BarChart } from "lucide-react"
+import {
+  Plus,
+  Trash2,
+  Edit,
+  Check,
+  X,
+  Building,
+  MapPin,
+  DollarSign,
+  Briefcase,
+  Users,
+  BarChart,
+  FileText,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -30,6 +43,7 @@ import { UserManagement } from "@/components/admin/user-management"
 import { ApplicationStats } from "@/components/admin/application-stats"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CURRENCY_SYMBOLS, CURRENCY_NAMES } from "@/lib/currency-utils"
+import { ApplicationManagement } from "@/components/admin/application-management"
 
 interface Job {
   id: string
@@ -281,7 +295,7 @@ export default function AdminPage() {
           </div>
 
           <Tabs defaultValue="jobs" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-6">
+            <TabsList className="grid grid-cols-4 mb-6">
               <TabsTrigger value="jobs" className="flex items-center">
                 <Briefcase className="h-4 w-4 mr-2" />
                 Manage Jobs
@@ -289,6 +303,10 @@ export default function AdminPage() {
               <TabsTrigger value="users" className="flex items-center">
                 <Users className="h-4 w-4 mr-2" />
                 User Management
+              </TabsTrigger>
+              <TabsTrigger value="applications" className="flex items-center">
+                <FileText className="h-4 w-4 mr-2" />
+                Applications
               </TabsTrigger>
               <TabsTrigger value="stats" className="flex items-center">
                 <BarChart className="h-4 w-4 mr-2" />
@@ -395,6 +413,10 @@ export default function AdminPage() {
 
             <TabsContent value="users">
               <UserManagement />
+            </TabsContent>
+
+            <TabsContent value="applications">
+              <ApplicationManagement />
             </TabsContent>
 
             <TabsContent value="stats">
