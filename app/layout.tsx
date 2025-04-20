@@ -9,8 +9,8 @@ import { AuthProvider } from "@/contexts/auth-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "GetAJobYo - Find Your Dream Job",
-  description: "Swipe your way to your next career opportunity",
+  title: "SkillMatch - Find Your Dream Job",
+  description: "Match your skills to the perfect career opportunity",
   manifest: "/manifest.json",
   icons: {
     apple: "/apple-touch-icon.png",

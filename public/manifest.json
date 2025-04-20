@@ -1,7 +1,7 @@
 {
-  "name": "GetAJobYo",
-  "short_name": "GetAJobYo",
-  "description": "Swipe right for your dream job, swipe left for the rest.",
+  "name": "SkillMatch",
+  "short_name": "SkillMatch",
+  "description": "Match your skills to the perfect career opportunity",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -55,7 +55,7 @@ export function SplashScreen() {
                 repeatType: "loop",
               }}
             >
-              GetAJobYo
+              SkillMatch
             </motion.h1>
           </motion.div>
         </motion.div>

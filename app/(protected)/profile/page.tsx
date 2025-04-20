@@ -134,12 +134,43 @@ export default function ProfilePage() {
     setSaving(true)
 
     try {
-      const { error } = await supabase.from("profiles").upsert({
-        ...profile,
-        updated_at: new Date().toISOString(),
-      })
+      // First check if the profile exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .single()
 
-      if (error) throw error
+      if (checkError && checkError.code !== "PGRST116") {
+        console.error("Error checking profile:", checkError)
+        throw checkError
+      }
+
+      let operation
+      if (!existingProfile) {
+        // Insert new profile
+        operation = supabase.from("profiles").insert({
+          ...profile,
+          id: user.id,
+          updated_at: new Date().toISOString(),
+        })
+      } else {
+        // Update existing profile
+        operation = supabase
+          .from("profiles")
+          .update({
+            ...profile,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id)
+      }
+
+      const { error } = await operation
+
+      if (error) {
+        console.error("Error saving profile:", error)
+        throw error
+      }
 
       toast({
         title: "Profile Saved",
@@ -149,7 +180,7 @@ export default function ProfilePage() {
       console.error("Error saving profile:", error)
       toast({
         title: "Error",
-        description: "Failed to save profile",
+        description: "Failed to save profile. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -168,12 +199,31 @@ export default function ProfilePage() {
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`
       const filePath = `resumes/${fileName}`
 
+      // First check if the bucket exists
+      const { data: buckets } = await supabase.storage.listBuckets()
+      const resumesBucketExists = buckets?.some((bucket) => bucket.name === "resumes")
+
+      // Create the bucket if it doesn't exist
+      if (!resumesBucketExists) {
+        const { error: createBucketError } = await supabase.storage.createBucket("resumes", {
+          public: true,
+        })
+
+        if (createBucketError) {
+          console.error("Error creating bucket:", createBucketError)
+          throw createBucketError
+        }
+      }
+
+      // Upload the file
       const { error: uploadError } = await supabase.storage.from("resumes").upload(filePath, file)
 
       if (uploadError) throw uploadError
 
+      // Get the public URL
       const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(filePath)
 
+      // Update the profile with the new resume URL
       setProfile((prev) => (prev ? { ...prev, resume_url: urlData.publicUrl } : null))
 
       toast({
@@ -184,7 +234,7 @@ export default function ProfilePage() {
       console.error("Error uploading resume:", error)
       toast({
         title: "Error",
-        description: "Failed to upload resume",
+        description: "Failed to upload resume. Please try again.",
         variant: "destructive",
       })
     } finally {

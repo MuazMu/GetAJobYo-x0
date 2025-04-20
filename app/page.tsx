@@ -13,15 +13,15 @@ export default function Home() {
       <main className="flex-1">
         <PageTransition>
           {/* Hero Section */}
-          <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-br from-background via-background to-purple-50 dark:from-background dark:via-background dark:to-purple-950/20">
+          <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-br from-background via-background to-blue-50 dark:from-background dark:via-background dark:to-blue-950/20">
             <div className="container px-4 md:px-6">
               <div className="flex flex-col items-center space-y-4 text-center">
                 <div className="space-y-2 max-w-3xl">
-                  <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl/none bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 animate-gradient">
-                    Swipe Your Way to Career Success
+                  <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl/none bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 animate-gradient">
+                    Match Your Skills to Your Dream Job
                   </h1>
                   <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl dark:text-gray-400 mt-4">
-                    GetAJobYo revolutionizes your job search with AI-powered matching and one-swipe applications. Find
+                    SkillMatch revolutionizes your job search with AI-powered matching and one-swipe applications. Find
                     your dream job in seconds, not hours.
                   </p>
                 </div>
@@ -29,7 +29,7 @@ export default function Home() {
                   <Link href="/login">
                     <Button
                       size="lg"
-                      className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-lg"
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-6 text-lg"
                     >
                       Get Started <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>

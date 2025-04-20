@@ -1,5 +1,7 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { createBrowserClient } from "@/lib/supabase"
@@ -15,14 +17,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Sparkles, AlertCircle, Filter } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -258,6 +253,20 @@ export default function JobsPage() {
 
         const currentJob = jobs[currentJobIndex]
 
+        // Create application record regardless of auto-apply setting
+        const { error: applicationError } = await supabase.from("applications").insert({
+          user_id: user.id,
+          job_id: jobId,
+          status: "pending",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+
+        if (applicationError) {
+          console.error("Error creating application:", applicationError)
+          throw applicationError
+        }
+
         if (autoApplyEnabled) {
           setApplyLoading(true)
           try {
@@ -289,15 +298,6 @@ export default function JobsPage() {
             setApplyLoading(false)
           }
         } else {
-          // Just create a basic application without cover letter
-          const { error: applicationError } = await supabase.from("applications").insert({
-            user_id: user.id,
-            job_id: jobId,
-            status: "pending",
-          })
-
-          if (applicationError) throw applicationError
-
           // Send application email without cover letter
           const emailSent = await sendApplicationEmail(jobId, user.id, null)
 

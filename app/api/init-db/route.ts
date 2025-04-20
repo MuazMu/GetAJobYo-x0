@@ -35,6 +35,7 @@ export async function GET() {
       github_url TEXT,
       linkedin_url TEXT,
       portfolio_url TEXT,
+      preferred_currency TEXT DEFAULT 'USD',
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
@@ -49,6 +50,9 @@ export async function GET() {
       salary_range TEXT NOT NULL,
       job_type TEXT NOT NULL,
       requirements TEXT[] DEFAULT '{}',
+      currency TEXT DEFAULT 'USD',
+      rate_period TEXT DEFAULT 'yearly',
+      creator_email TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
@@ -59,8 +63,7 @@ export async function GET() {
       user_id UUID REFERENCES users(id) NOT NULL,
       job_id UUID REFERENCES jobs(id) NOT NULL,
       status TEXT DEFAULT 'pending',
-      cover_letter TEXT,
-      applied_at TIMESTAMP WITH TIME ZONE,
+      feedback TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );

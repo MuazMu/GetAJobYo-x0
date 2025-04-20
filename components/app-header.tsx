@@ -20,8 +20,8 @@ export function AppHeader() {
         <div className="bg-primary rounded-full p-1.5">
           <Briefcase className="h-5 w-5 text-primary-foreground" />
         </div>
-        <span className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500">
-          GetAJobYo
+        <span className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500">
+          SkillMatch
         </span>
       </Link>
 

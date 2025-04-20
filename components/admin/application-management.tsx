@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { createBrowserClient } from "@/lib/supabase"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useToast } from "@/hooks/use-toast"
-import { Search, Mail, User, Briefcase, CheckCircle, XCircle, Clock, MessageSquare } from "lucide-react"
+import { Search, Mail, User, CheckCircle, XCircle, Clock, MessageSquare } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,8 +28,6 @@ interface Application {
   user_id: string
   job_id: string
   status: string
-  cover_letter: string | null
-  applied_at: string
   created_at: string
   updated_at: string
   feedback?: string
@@ -82,8 +80,6 @@ export function ApplicationManagement() {
             user_id,
             job_id,
             status,
-            cover_letter,
-            applied_at,
             created_at,
             updated_at,
             feedback,
@@ -394,14 +390,10 @@ export function ApplicationManagement() {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-3 mb-4">
+            <TabsList className="grid grid-cols-2 mb-4">
               <TabsTrigger value="details" className="flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 Applicant Details
-              </TabsTrigger>
-              <TabsTrigger value="cover-letter" className="flex items-center">
-                <Briefcase className="h-4 w-4 mr-2" />
-                Cover Letter
               </TabsTrigger>
               <TabsTrigger value="feedback" className="flex items-center">
                 <MessageSquare className="h-4 w-4 mr-2" />
@@ -585,21 +577,6 @@ export function ApplicationManagement() {
                   </CardContent>
                 </Card>
               </div>
-            </TabsContent>
-
-            <TabsContent value="cover-letter">
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Cover Letter</h3>
-                  {selectedApplication?.cover_letter ? (
-                    <div className="whitespace-pre-line bg-muted p-4 rounded-md">
-                      {selectedApplication.cover_letter}
-                    </div>
-                  ) : (
-                    <div className="text-muted-foreground">No cover letter provided</div>
-                  )}
-                </CardContent>
-              </Card>
             </TabsContent>
 
             <TabsContent value="feedback">
