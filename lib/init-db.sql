@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS applications (
   user_id UUID REFERENCES users(id) NOT NULL,
   job_id UUID REFERENCES jobs(id) NOT NULL,
   status TEXT DEFAULT 'pending',
-  feedback TEXT,
+  applied_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -67,3 +67,112 @@ CREATE TABLE IF NOT EXISTS swipes (
   direction TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Enable Row Level Security (RLS) on all tables
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE swipes ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for users table
+CREATE POLICY users_select_policy ON users
+  FOR SELECT USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+CREATE POLICY users_insert_policy ON users
+  FOR INSERT WITH CHECK (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+CREATE POLICY users_update_policy ON users
+  FOR UPDATE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+CREATE POLICY users_delete_policy ON users
+  FOR DELETE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+-- Create policies for profiles table
+CREATE POLICY profiles_select_policy ON profiles
+  FOR SELECT USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+CREATE POLICY profiles_insert_policy ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+CREATE POLICY profiles_update_policy ON profiles
+  FOR UPDATE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+CREATE POLICY profiles_delete_policy ON profiles
+  FOR DELETE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+
+-- Create policies for jobs table
+CREATE POLICY jobs_select_policy ON jobs
+  FOR SELECT USING (true); -- Anyone can view jobs
+
+CREATE POLICY jobs_insert_policy ON jobs
+  FOR INSERT WITH CHECK (auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR 
+                         auth.jwt() ->> 'email' = creator_email);
+
+CREATE POLICY jobs_update_policy ON jobs
+  FOR UPDATE USING (auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR 
+                    auth.jwt() ->> 'email' = creator_email);
+
+CREATE POLICY jobs_delete_policy ON jobs
+  FOR DELETE USING (auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR 
+                    auth.jwt() ->> 'email' = creator_email);
+
+-- Create policies for applications table
+CREATE POLICY applications_select_policy ON applications
+  FOR SELECT USING (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR
+    EXISTS (
+      SELECT 1 FROM jobs 
+      WHERE jobs.id = applications.job_id AND 
+            jobs.creator_email = auth.jwt() ->> 'email'
+    )
+  );
+
+CREATE POLICY applications_insert_policy ON applications
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+  );
+
+CREATE POLICY applications_update_policy ON applications
+  FOR UPDATE USING (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR
+    EXISTS (
+      SELECT 1 FROM jobs 
+      WHERE jobs.id = applications.job_id AND 
+            jobs.creator_email = auth.jwt() ->> 'email'
+    )
+  );
+
+CREATE POLICY applications_delete_policy ON applications
+  FOR DELETE USING (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+  );
+
+-- Create policies for swipes table
+CREATE POLICY swipes_select_policy ON swipes
+  FOR SELECT USING (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+  );
+
+CREATE POLICY swipes_insert_policy ON swipes
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+  );
+
+CREATE POLICY swipes_update_policy ON swipes
+  FOR UPDATE USING (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+  );
+
+CREATE POLICY swipes_delete_policy ON swipes
+  FOR DELETE USING (
+    auth.uid() = user_id OR 
+    auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+  );

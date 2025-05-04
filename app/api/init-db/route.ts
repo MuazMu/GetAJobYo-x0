@@ -63,7 +63,7 @@ export async function GET() {
       user_id UUID REFERENCES users(id) NOT NULL,
       job_id UUID REFERENCES jobs(id) NOT NULL,
       status TEXT DEFAULT 'pending',
-      feedback TEXT,
+      applied_at TIMESTAMP WITH TIME ZONE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
@@ -76,6 +76,140 @@ export async function GET() {
       direction TEXT NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
+    
+    -- Enable Row Level Security (RLS) on all tables
+    ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE swipes ENABLE ROW LEVEL SECURITY;
+    
+    -- Create policies for users table
+    DROP POLICY IF EXISTS users_select_policy ON users;
+    DROP POLICY IF EXISTS users_insert_policy ON users;
+    DROP POLICY IF EXISTS users_update_policy ON users;
+    DROP POLICY IF EXISTS users_delete_policy ON users;
+    
+    CREATE POLICY users_select_policy ON users
+      FOR SELECT USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    CREATE POLICY users_insert_policy ON users
+      FOR INSERT WITH CHECK (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    CREATE POLICY users_update_policy ON users
+      FOR UPDATE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    CREATE POLICY users_delete_policy ON users
+      FOR DELETE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    -- Create policies for profiles table
+    DROP POLICY IF EXISTS profiles_select_policy ON profiles;
+    DROP POLICY IF EXISTS profiles_insert_policy ON profiles;
+    DROP POLICY IF EXISTS profiles_update_policy ON profiles;
+    DROP POLICY IF EXISTS profiles_delete_policy ON profiles;
+    
+    CREATE POLICY profiles_select_policy ON profiles
+      FOR SELECT USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    CREATE POLICY profiles_insert_policy ON profiles
+      FOR INSERT WITH CHECK (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    CREATE POLICY profiles_update_policy ON profiles
+      FOR UPDATE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    CREATE POLICY profiles_delete_policy ON profiles
+      FOR DELETE USING (auth.uid() = id OR auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com');
+    
+    -- Create policies for jobs table
+    DROP POLICY IF EXISTS jobs_select_policy ON jobs;
+    DROP POLICY IF EXISTS jobs_insert_policy ON jobs;
+    DROP POLICY IF EXISTS jobs_update_policy ON jobs;
+    DROP POLICY IF EXISTS jobs_delete_policy ON jobs;
+    
+    CREATE POLICY jobs_select_policy ON jobs
+      FOR SELECT USING (true); -- Anyone can view jobs
+    
+    CREATE POLICY jobs_insert_policy ON jobs
+      FOR INSERT WITH CHECK (auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR 
+                             auth.jwt() ->> 'email' = creator_email);
+    
+    CREATE POLICY jobs_update_policy ON jobs
+      FOR UPDATE USING (auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR 
+                        auth.jwt() ->> 'email' = creator_email);
+    
+    CREATE POLICY jobs_delete_policy ON jobs
+      FOR DELETE USING (auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR 
+                        auth.jwt() ->> 'email' = creator_email);
+    
+    -- Create policies for applications table
+    DROP POLICY IF EXISTS applications_select_policy ON applications;
+    DROP POLICY IF EXISTS applications_insert_policy ON applications;
+    DROP POLICY IF EXISTS applications_update_policy ON applications;
+    DROP POLICY IF EXISTS applications_delete_policy ON applications;
+    
+    CREATE POLICY applications_select_policy ON applications
+      FOR SELECT USING (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR
+        EXISTS (
+          SELECT 1 FROM jobs 
+          WHERE jobs.id = applications.job_id AND 
+                jobs.creator_email = auth.jwt() ->> 'email'
+        )
+      );
+    
+    CREATE POLICY applications_insert_policy ON applications
+      FOR INSERT WITH CHECK (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+      );
+    
+    CREATE POLICY applications_update_policy ON applications
+      FOR UPDATE USING (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com' OR
+        EXISTS (
+          SELECT 1 FROM jobs 
+          WHERE jobs.id = applications.job_id AND 
+                jobs.creator_email = auth.jwt() ->> 'email'
+        )
+      );
+    
+    CREATE POLICY applications_delete_policy ON applications
+      FOR DELETE USING (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+      );
+    
+    -- Create policies for swipes table
+    DROP POLICY IF EXISTS swipes_select_policy ON swipes;
+    DROP POLICY IF EXISTS swipes_insert_policy ON swipes;
+    DROP POLICY IF EXISTS swipes_update_policy ON swipes;
+    DROP POLICY IF EXISTS swipes_delete_policy ON swipes;
+    
+    CREATE POLICY swipes_select_policy ON swipes
+      FOR SELECT USING (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+      );
+    
+    CREATE POLICY swipes_insert_policy ON swipes
+      FOR INSERT WITH CHECK (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+      );
+    
+    CREATE POLICY swipes_update_policy ON swipes
+      FOR UPDATE USING (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+      );
+    
+    CREATE POLICY swipes_delete_policy ON swipes
+      FOR DELETE USING (
+        auth.uid() = user_id OR 
+        auth.jwt() ->> 'email' LIKE '%@getajobyoapp.com'
+      );
     `
 
     // Execute the SQL
@@ -86,7 +220,7 @@ export async function GET() {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, message: "Database initialized successfully" })
+    return NextResponse.json({ success: true, message: "Database initialized successfully with RLS policies" })
   } catch (error) {
     console.error("Unexpected error initializing database:", error)
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
