@@ -18,7 +18,6 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, XCircle, Sparkles, AlertCircle, Filter } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
@@ -42,7 +41,6 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true)
   const [jobMatch, setJobMatch] = useState<JobMatch | null>(null)
   const [matchLoading, setMatchLoading] = useState(false)
-  const [autoApplyEnabled, setAutoApplyEnabled] = useState(false)
   const [showApplyDialog, setShowApplyDialog] = useState(false)
   const [applyLoading, setApplyLoading] = useState(false)
   const [coverLetter, setCoverLetter] = useState("")
@@ -72,7 +70,12 @@ export default function JobsPage() {
       try {
         setLoading(true)
         // Get jobs that the user hasn't swiped on yet
-        const { data: swipedJobIds } = await supabase.from("swipes").select("job_id").eq("user_id", user.id)
+        const { data: swipedJobIds, error: swipedJobIdsError } = await supabase
+          .from("swipes")
+          .select("job_id")
+          .eq("user_id", user.id)
+
+        if (swipedJobIdsError) throw swipedJobIdsError
 
         const swipedIds = swipedJobIds?.map((item) => item.job_id) || []
 
@@ -253,7 +256,7 @@ export default function JobsPage() {
 
         const currentJob = jobs[currentJobIndex]
 
-        // Create application record regardless of auto-apply setting
+        // Create application record
         const { error: applicationError } = await supabase.from("applications").insert({
           user_id: user.id,
           job_id: jobId,
@@ -267,39 +270,16 @@ export default function JobsPage() {
           throw applicationError
         }
 
-        if (autoApplyEnabled) {
-          setApplyLoading(true)
-          try {
-            console.log("Auto-applying to job:", jobId)
-            const result = await autoApplyToJob(jobId, user.id)
-            setCoverLetter(result.coverLetter)
-            setShowApplyDialog(true)
+        // Always use AI auto-apply
+        setApplyLoading(true)
+        try {
+          console.log("Auto-applying to job:", jobId)
+          const result = await autoApplyToJob(jobId, user.id)
+          setCoverLetter(result.coverLetter)
+          setShowApplyDialog(true)
 
-            // Send application email
-            const emailSent = await sendApplicationEmail(jobId, user.id, result.coverLetter)
-
-            setApplicationStatus({
-              show: true,
-              success: true,
-              jobTitle: currentJob.title,
-              company: currentJob.company,
-              emailSent,
-            })
-          } catch (error) {
-            console.error("Error in auto-apply:", error)
-            setApplicationStatus({
-              show: true,
-              success: false,
-              jobTitle: currentJob.title,
-              company: currentJob.company,
-              emailSent: false,
-            })
-          } finally {
-            setApplyLoading(false)
-          }
-        } else {
-          // Send application email without cover letter
-          const emailSent = await sendApplicationEmail(jobId, user.id, null)
+          // Send application email
+          const emailSent = await sendApplicationEmail(jobId, user.id, result.coverLetter)
 
           setApplicationStatus({
             show: true,
@@ -308,12 +288,23 @@ export default function JobsPage() {
             company: currentJob.company,
             emailSent,
           })
+        } catch (error) {
+          console.error("Error in auto-apply:", error)
+          setApplicationStatus({
+            show: true,
+            success: false,
+            jobTitle: currentJob.title,
+            company: currentJob.company,
+            emailSent: false,
+          })
+        } finally {
+          setApplyLoading(false)
         }
-      }
 
-      // Move to the next job
-      setCurrentJobIndex((prev) => prev + 1)
-      setJobMatch(null)
+        // Move to the next job
+        setCurrentJobIndex((prev) => prev + 1)
+        setJobMatch(null)
+      }
     } catch (error) {
       console.error("Error recording swipe:", error)
       toast({
@@ -406,19 +397,6 @@ export default function JobsPage() {
                 >
                   <Filter className="h-4 w-4" />
                 </Button>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5 }}
-                className="flex items-center space-x-2"
-              >
-                <Switch id="auto-apply" checked={autoApplyEnabled} onCheckedChange={setAutoApplyEnabled} />
-                <Label htmlFor="auto-apply" className="flex items-center cursor-pointer">
-                  <Sparkles className="h-4 w-4 mr-1 text-yellow-500" />
-                  AI Auto-Apply
-                </Label>
               </motion.div>
             </div>
           </div>

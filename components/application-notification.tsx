@@ -1,53 +1,68 @@
 "use client"
 
-import { useToast } from "@/hooks/use-toast"
-import { CheckCircle2, XCircle } from "lucide-react"
-import { useEffect } from "react"
+import { formatDistanceToNow } from "date-fns"
+import { Check, Clock, X, AlertCircle, CheckCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
-interface ApplicationNotificationProps {
-  success: boolean
-  jobTitle: string
-  company: string
-  emailSent: boolean
-  onClose: () => void
+interface NotificationProps {
+  notification: {
+    id: string
+    type: string
+    title: string
+    message: string
+    read: boolean
+    created_at: string
+    application_id?: string
+    job_title?: string
+    company_name?: string
+    status?: string
+  }
+  onRead: () => void
 }
 
-export function ApplicationNotification({
-  success,
-  jobTitle,
-  company,
-  emailSent,
-  onClose,
-}: ApplicationNotificationProps) {
-  const { toast } = useToast()
+export function ApplicationNotification({ notification, onRead }: NotificationProps) {
+  const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })
 
-  useEffect(() => {
-    const title = success ? "Application Submitted" : "Application Failed"
-    const description = success
-      ? `Your application for ${jobTitle} at ${company} has been submitted${
-          emailSent ? " and the employer has been notified" : ""
-        }`
-      : `There was an error submitting your application for ${jobTitle} at ${company}`
-    const variant = success ? "default" : "destructive"
+  const getIcon = () => {
+    switch (notification.type) {
+      case "application_submitted":
+        return <Check className="h-5 w-5 text-green-500" />
+      case "application_status_change":
+        if (notification.status === "rejected") {
+          return <X className="h-5 w-5 text-red-500" />
+        } else if (notification.status === "interview") {
+          return <Clock className="h-5 w-5 text-yellow-500" />
+        } else if (notification.status === "accepted") {
+          return <CheckCircle className="h-5 w-5 text-green-500" />
+        }
+        return <AlertCircle className="h-5 w-5 text-blue-500" />
+      default:
+        return <AlertCircle className="h-5 w-5 text-blue-500" />
+    }
+  }
 
-    toast({
-      title,
-      description,
-      variant,
-      action: success ? (
-        <CheckCircle2 className="h-4 w-4 text-green-500" />
-      ) : (
-        <XCircle className="h-4 w-4 text-red-500" />
-      ),
-    })
-
-    // Auto-close after 5 seconds
-    const timer = setTimeout(() => {
-      onClose()
-    }, 5000)
-
-    return () => clearTimeout(timer)
-  }, [success, jobTitle, company, emailSent, toast, onClose])
-
-  return null
+  return (
+    <div
+      className={`p-4 border-b flex items-start gap-3 hover:bg-muted/50 transition-colors ${!notification.read ? "bg-muted/20" : ""}`}
+      onClick={onRead}
+    >
+      <div className="mt-0.5">{getIcon()}</div>
+      <div className="flex-1 min-w-0">
+        <div className="font-medium">{notification.title}</div>
+        <p className="text-sm text-muted-foreground line-clamp-2">{notification.message}</p>
+        {notification.application_id && (
+          <Link href={`/applications?id=${notification.application_id}`}>
+            <Button variant="link" className="h-auto p-0 text-sm">
+              View application
+            </Button>
+          </Link>
+        )}
+        <div className="text-xs text-muted-foreground mt-1">{timeAgo}</div>
+      </div>
+      {!notification.read && <div className="h-2 w-2 rounded-full bg-blue-500 mt-1.5"></div>}
+    </div>
+  )
 }
+
+export default ApplicationNotification

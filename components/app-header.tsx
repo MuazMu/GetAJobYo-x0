@@ -3,11 +3,13 @@
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { Briefcase } from "lucide-react"
-import { NotificationBell } from "@/components/notification-bell"
-import { useAuth } from "@/contexts/auth-context"
+import NotificationBell from "@/components/notification-bell"
+import { useContext } from "react"
+import { AuthContext } from "@/contexts/auth-context"
 
-export function AppHeader() {
-  const { user } = useAuth()
+function AppHeaderComponent() {
+  const authContext = useContext(AuthContext)
+  const { user } = authContext || { user: null }
 
   return (
     <motion.header
@@ -33,3 +35,7 @@ export function AppHeader() {
     </motion.header>
   )
 }
+
+// Export both as default and named export
+export default AppHeaderComponent
+export { AppHeaderComponent as AppHeader }

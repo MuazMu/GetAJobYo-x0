@@ -153,7 +153,7 @@ export function DatabaseDebug() {
       <CardContent className="space-y-2 text-sm">
         <div className="flex items-center justify-between">
           <span>Connection:</span>
-          {connectionStatus === null ? (
+          {!connectionStatus ? (
             <span className="text-muted-foreground">Checking...</span>
           ) : connectionStatus.connected ? (
             <span className="flex items-center text-green-500">
@@ -192,7 +192,7 @@ export function DatabaseDebug() {
           </>
         )}
 
-        {(connectionStatus && !connectionStatus.connected) || (dbStatus && !dbStatus.connected) ? (
+        {(connectionStatus && connectionStatus.connected === false) || (dbStatus && !dbStatus.connected) ? (
           <Alert variant="destructive" className="mt-2">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Connection Error</AlertTitle>
@@ -248,3 +248,5 @@ export function DatabaseDebug() {
     </Card>
   )
 }
+
+export default DatabaseDebug

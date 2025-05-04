@@ -8,7 +8,6 @@ import { Search, Mail, User, CheckCircle, XCircle, Clock, MessageSquare } from "
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
@@ -30,7 +29,6 @@ interface Application {
   status: string
   created_at: string
   updated_at: string
-  feedback?: string
   user?: {
     id: string
     email: string
@@ -82,7 +80,6 @@ export function ApplicationManagement() {
             status,
             created_at,
             updated_at,
-            feedback,
             user:users (
               id,
               email,
@@ -160,7 +157,7 @@ export function ApplicationManagement() {
 
   const handleViewApplication = (application: Application) => {
     setSelectedApplication(application)
-    setFeedbackNote(application.feedback || "")
+    setFeedbackNote("") // Reset feedback note for each application
     setActiveTab("details")
     setShowApplicationDialog(true)
   }
@@ -183,7 +180,7 @@ export function ApplicationManagement() {
 
       // Send email notification to applicant
       try {
-        await sendApplicationStatusEmail(selectedApplication.id, newStatus, feedbackNote)
+        await sendApplicationStatusEmail(selectedApplication.id, newStatus, "")
       } catch (emailError) {
         console.error("Error sending email notification:", emailError)
       }
@@ -206,45 +203,6 @@ export function ApplicationManagement() {
       toast({
         title: "Error",
         description: "Failed to update application status",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessingAction(false)
-    }
-  }
-
-  const handleSaveFeedback = async () => {
-    if (!selectedApplication) return
-
-    setProcessingAction(true)
-
-    try {
-      const { error } = await supabase
-        .from("applications")
-        .update({
-          feedback: feedbackNote,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", selectedApplication.id)
-
-      if (error) throw error
-
-      // Update the application in the local state
-      setApplications((prev) =>
-        prev.map((app) => (app.id === selectedApplication.id ? { ...app, feedback: feedbackNote } : app)),
-      )
-
-      setSelectedApplication((prev) => (prev ? { ...prev, feedback: feedbackNote } : null))
-
-      toast({
-        title: "Feedback Saved",
-        description: "The feedback has been saved successfully.",
-      })
-    } catch (error) {
-      console.error("Error saving feedback:", error)
-      toast({
-        title: "Error",
-        description: "Failed to save feedback",
         variant: "destructive",
       })
     } finally {
@@ -390,14 +348,10 @@ export function ApplicationManagement() {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-2 mb-4">
+            <TabsList className="grid grid-cols-1 mb-4">
               <TabsTrigger value="details" className="flex items-center">
                 <User className="h-4 w-4 mr-2" />
                 Applicant Details
-              </TabsTrigger>
-              <TabsTrigger value="feedback" className="flex items-center">
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Feedback
               </TabsTrigger>
             </TabsList>
 
@@ -577,28 +531,6 @@ export function ApplicationManagement() {
                   </CardContent>
                 </Card>
               </div>
-            </TabsContent>
-
-            <TabsContent value="feedback">
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Feedback</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Add feedback or notes about this application. This feedback can be included in notification emails
-                    sent to the applicant.
-                  </p>
-                  <Textarea
-                    value={feedbackNote}
-                    onChange={(e) => setFeedbackNote(e.target.value)}
-                    placeholder="Enter feedback or notes about this application..."
-                    rows={6}
-                  />
-                  <Button onClick={handleSaveFeedback} className="mt-4" disabled={processingAction}>
-                    {processingAction ? <LoadingSpinner size="sm" className="mr-2" /> : null}
-                    Save Feedback
-                  </Button>
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
 

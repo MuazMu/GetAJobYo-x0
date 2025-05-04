@@ -179,7 +179,6 @@ export async function autoApplyToJob(jobId: string, userId: string) {
       user_id: userId,
       job_id: jobId,
       status: "pending",
-      cover_letter: coverLetter,
       applied_at: new Date().toISOString(),
     })
 
@@ -191,6 +190,153 @@ export async function autoApplyToJob(jobId: string, userId: string) {
     return { success: true, coverLetter }
   } catch (error) {
     console.error("Error in auto-apply process:", error)
+    throw error
+  }
+}
+
+// New function to analyze resume and extract information
+export async function analyzeResume(resumeText: string) {
+  try {
+    const prompt = `
+      Analyze the following resume and extract key information. Format your response as JSON with the following structure:
+      {
+        "summary": "brief professional summary",
+        "skills": ["skill1", "skill2", ...],
+        "experience": [
+          {
+            "title": "job title",
+            "company": "company name",
+            "duration": "duration",
+            "description": "brief description"
+          }
+        ],
+        "education": [
+          {
+            "degree": "degree name",
+            "institution": "institution name",
+            "year": "graduation year"
+          }
+        ],
+        "certifications": ["certification1", "certification2", ...],
+        "languages": ["language1", "language2", ...],
+        "recommendations": ["recommendation for profile improvement 1", "recommendation 2", ...]
+      }
+      
+      Resume:
+      ${resumeText}
+    `
+
+    console.log("Analyzing resume with OpenRouter API using Gemini model")
+
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://getajobyoapp.vercel.app",
+        "X-Title": "GetAJobYo",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-pro-experimental",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+      }),
+    })
+
+    if (!response.ok) {
+      console.error(`API request failed with status ${response.status}:`, await response.text())
+      throw new Error(`API request failed with status ${response.status}`)
+    }
+
+    const data = (await response.json()) as OpenRouterResponse
+    console.log("Resume analysis completed successfully")
+    const resumeData = JSON.parse(data.choices[0].message.content)
+
+    return resumeData
+  } catch (error) {
+    console.error("Error analyzing resume:", error)
+    return {
+      summary: "Unable to analyze resume",
+      skills: [],
+      experience: [],
+      education: [],
+      certifications: [],
+      languages: [],
+      recommendations: ["Please try uploading your resume again"],
+    }
+  }
+}
+
+// New function to import jobs from Excel or Word
+export async function importJobsFromFile(fileContent: string, fileType: "excel" | "word") {
+  try {
+    const prompt = `
+      Parse the following ${fileType} file content and extract job listings. 
+      Format each job as a JSON object with the following structure:
+      {
+        "title": "job title",
+        "company": "company name",
+        "location": "job location",
+        "description": "detailed job description",
+        "requirements": ["requirement1", "requirement2", ...],
+        "salary_range": "min-max",
+        "currency": "USD",
+        "rate_period": "yearly",
+        "job_type": "full-time/part-time/contract",
+        "requires_cover_letter": true/false,
+        "additional_fields": {
+          "field1": "value1",
+          "field2": "value2"
+        }
+      }
+      
+      Return an array of these job objects.
+      
+      File Content:
+      ${fileContent}
+    `
+
+    console.log(`Parsing ${fileType} file with OpenRouter API using Gemini model`)
+
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://getajobyoapp.vercel.app",
+        "X-Title": "GetAJobYo",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-pro-experimental",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+      }),
+    })
+
+    if (!response.ok) {
+      console.error(`API request failed with status ${response.status}:`, await response.text())
+      throw new Error(`API request failed with status ${response.status}`)
+    }
+
+    const data = (await response.json()) as OpenRouterResponse
+    console.log("File parsing completed successfully")
+    const jobsData = JSON.parse(data.choices[0].message.content)
+
+    return jobsData
+  } catch (error) {
+    console.error("Error parsing file:", error)
     throw error
   }
 }

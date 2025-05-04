@@ -2,19 +2,28 @@
 
 import { useEffect } from "react"
 
-export function ServiceWorkerRegister() {
+export default function SwRegister() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    // Skip service worker registration in preview environments
+    const isPreviewEnvironment =
+      typeof window !== "undefined" &&
+      (window.location.hostname.includes("vusercontent.net") ||
+        window.location.hostname.includes("localhost") ||
+        window.location.hostname.includes("vercel.app"))
+
+    if ("serviceWorker" in navigator && !isPreviewEnvironment) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js").then(
-          (registration) => {
-            console.log("ServiceWorker registration successful with scope: ", registration.scope)
-          },
-          (err) => {
-            console.log("ServiceWorker registration failed: ", err)
-          },
-        )
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((registration) => {
+            console.log("Service Worker registered with scope:", registration.scope)
+          })
+          .catch((error) => {
+            console.error("Service Worker registration failed:", error)
+          })
       })
+    } else {
+      console.log("Service Worker registration skipped in preview environment")
     }
   }, [])
 

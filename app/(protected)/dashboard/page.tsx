@@ -13,7 +13,6 @@ import { Briefcase, CheckCircle, Clock, XCircle, BarChart3, TrendingUp, Award } 
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { SalaryCalculator } from "@/components/salary-calculator"
 
 interface DashboardStats {
   totalApplications: number
@@ -624,13 +623,6 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.8 }}
-            >
-              <SalaryCalculator />
             </motion.div>
           </div>
         </div>

@@ -2,33 +2,45 @@
 
 import type React from "react"
 
-import { useAuth } from "@/contexts/auth-context"
-import { AppShell } from "@/components/app-shell"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { PageTransition } from "@/components/page-transition"
+import { MainNav } from "@/components/main-nav"
+import { AppHeader } from "@/components/app-header"
+import { DatabaseDebug } from "@/components/db-debug"
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const { user, isInitialized } = useAuth()
+  const { user, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (isInitialized && !user) {
+    if (!loading && !user) {
       router.push("/login")
     }
-  }, [isInitialized, user, router])
+  }, [user, loading, router])
 
-  if (!isInitialized) {
+  if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
       </div>
     )
   }
 
-  if (!user) {
-    return null
+  if (!loading && !user) {
+    return null // Will redirect in the useEffect
   }
 
-  return <AppShell>{children}</AppShell>
+  return (
+    <div className="flex flex-col min-h-screen">
+      <AppHeader />
+      <main className="flex-1 container max-w-7xl mx-auto px-4 py-4 pb-20">
+        <PageTransition>{children}</PageTransition>
+      </main>
+      <MainNav />
+      <DatabaseDebug />
+    </div>
+  )
 }

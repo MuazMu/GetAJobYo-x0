@@ -21,6 +21,7 @@ export function MainNav() {
       active: pathname === "/",
       icon: Home,
       public: true,
+      hideWhenAuthenticated: true, // Hide home page when user is authenticated
     },
     {
       href: "/dashboard",
@@ -68,6 +69,8 @@ export function MainNav() {
       transition={{ duration: 0.3, delay: 0.2 }}
     >
       {routes.map((route) => {
+        // Skip if route should be hidden for authenticated users
+        if (user && route.hideWhenAuthenticated) return null
         if (!user && !route.public) return null
         if (route.adminOnly && !isAdmin) return null
 
@@ -120,3 +123,5 @@ export function MainNav() {
     </motion.nav>
   )
 }
+
+export default MainNav

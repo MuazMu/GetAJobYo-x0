@@ -19,6 +19,20 @@ const nextConfig = {
     });
     return config;
   },
+  // Add headers to ensure proper MIME types
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/javascript',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
