@@ -1,12 +1,10 @@
 "use client"
 
-import React from "react"
-
-import { useState } from "react"
+import React, { useState, useRef } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { motion } from "framer-motion"
+import { motion, useMotionValue, useTransform, useAnimation } from "framer-motion"
 import { MapPin, Clock, DollarSign, ChevronDown, ChevronUp, CheckCircle, XCircle } from "lucide-react"
 
 export interface Job {
@@ -32,6 +30,12 @@ interface JobCardProps {
 
 export function JobCard({ job, onSwipe }: JobCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const controls = useAnimation()
+  const x = useMotionValue(0)
+  const rotate = useTransform(x, [-200, 200], [-30, 30])
+  const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0])
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const getCurrencySymbol = (currency: string) => {
     switch (currency) {
@@ -54,14 +58,66 @@ export function JobCard({ job, onSwipe }: JobCardProps) {
     }
   }
 
+  const handleDragEnd = () => {
+    setIsDragging(false)
+    const xValue = x.get()
+
+    if (xValue > 100) {
+      // Swipe right - apply
+      controls
+        .start({
+          x: 500,
+          opacity: 0,
+          transition: { duration: 0.3 },
+        })
+        .then(() => {
+          onSwipe(job.id, "right")
+        })
+    } else if (xValue < -100) {
+      // Swipe left - skip
+      controls
+        .start({
+          x: -500,
+          opacity: 0,
+          transition: { duration: 0.3 },
+        })
+        .then(() => {
+          onSwipe(job.id, "left")
+        })
+    } else {
+      // Return to center
+      controls.start({
+        x: 0,
+        transition: { type: "spring", stiffness: 300, damping: 20 },
+      })
+    }
+  }
+
   return (
     <motion.div
+      ref={cardRef}
       initial={{ scale: 0.95, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.3 }}
-      className="w-full"
+      animate={{ scale: 1, opacity: 1, ...controls }}
+      style={{ x, rotate, opacity }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.7}
+      onDragStart={() => setIsDragging(true)}
+      onDragEnd={handleDragEnd}
+      whileTap={{ cursor: "grabbing" }}
+      className="w-full touch-none cursor-grab"
     >
-      <Card className="border shadow-sm hover:shadow-md transition-all duration-200">
+      <Card className="border shadow-sm hover:shadow-md transition-all duration-200 relative">
+        {isDragging && x.get() > 50 && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 bg-green-500 text-white p-2 rounded-full z-10">
+            <CheckCircle className="h-6 w-6" />
+          </div>
+        )}
+        {isDragging && x.get() < -50 && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-red-500 text-white p-2 rounded-full z-10">
+            <XCircle className="h-6 w-6" />
+          </div>
+        )}
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <div>

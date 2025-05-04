@@ -6,6 +6,7 @@ import { Briefcase } from "lucide-react"
 import NotificationBell from "@/components/notification-bell"
 import { useContext } from "react"
 import { AuthContext } from "@/contexts/auth-context"
+import { ModeToggle } from "@/components/mode-toggle"
 
 function AppHeaderComponent() {
   const authContext = useContext(AuthContext)
@@ -13,7 +14,7 @@ function AppHeaderComponent() {
 
   return (
     <motion.header
-      className="w-full bg-background border-b py-3 px-4 flex items-center justify-between"
+      className="w-full bg-background border-b py-3 px-4 flex items-center justify-between sticky top-0 z-50"
       initial={{ y: -50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
@@ -27,11 +28,10 @@ function AppHeaderComponent() {
         </span>
       </Link>
 
-      {user && (
-        <div className="flex items-center gap-2">
-          <NotificationBell />
-        </div>
-      )}
+      <div className="flex items-center gap-3">
+        <ModeToggle />
+        {user && <NotificationBell />}
+      </div>
     </motion.header>
   )
 }

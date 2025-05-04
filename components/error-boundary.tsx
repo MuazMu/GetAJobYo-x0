@@ -1,13 +1,12 @@
 "use client"
 
 import { Component, type ErrorInfo, type ReactNode } from "react"
-import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw } from "lucide-react"
 
 interface Props {
-  children: ReactNode
-  fallback?: ReactNode
+  children?: ReactNode
 }
 
 interface State {
@@ -16,7 +15,7 @@ interface State {
   errorInfo: ErrorInfo | null
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
@@ -34,31 +33,24 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback
-      }
-
       return (
-        <div className="p-4 flex flex-col items-center justify-center min-h-[50vh]">
-          <Alert variant="destructive" className="max-w-md mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Something went wrong</AlertTitle>
-            <AlertDescription className="mt-2">
-              <details className="cursor-pointer">
-                <summary className="font-medium">Error details</summary>
-                <p className="mt-2 text-sm whitespace-pre-wrap">{this.state.error?.toString()}</p>
-                {this.state.errorInfo && (
-                  <pre className="mt-2 text-xs overflow-auto p-2 bg-background border rounded-md">
-                    {this.state.errorInfo.componentStack}
-                  </pre>
-                )}
-              </details>
-            </AlertDescription>
-          </Alert>
-          <Button onClick={() => window.location.reload()} className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Reload Page
-          </Button>
+        <div className="flex min-h-screen flex-col items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Something went wrong</AlertTitle>
+              <AlertDescription>
+                <p className="mb-2">An error occurred in the application.</p>
+                <p className="text-xs font-mono overflow-auto max-h-32 whitespace-pre-wrap">
+                  {this.state.error?.toString()}
+                </p>
+              </AlertDescription>
+            </Alert>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reload Page
+            </Button>
+          </div>
         </div>
       )
     }
