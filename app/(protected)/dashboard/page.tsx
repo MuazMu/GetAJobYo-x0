@@ -4,15 +4,25 @@ import { Badge } from "@/components/ui/badge"
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { createBrowserClient } from "@/lib/supabase"
-import { MainNav } from "@/components/main-nav"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageTransition } from "@/components/page-transition"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { motion } from "framer-motion"
-import { Briefcase, CheckCircle, Clock, XCircle, BarChart3, TrendingUp, Award } from "lucide-react"
+import {
+  Briefcase,
+  CheckCircle,
+  Clock,
+  XCircle,
+  BarChart3,
+  TrendingUp,
+  Award,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface DashboardStats {
   totalApplications: number
@@ -44,6 +54,7 @@ export default function DashboardPage() {
   const { user, isInitialized } = useAuth()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createBrowserClient()
 
   useEffect(() => {
@@ -56,6 +67,7 @@ export default function DashboardPage() {
 
       try {
         setLoading(true)
+        setError(null)
         console.log("Fetching dashboard stats for user:", user.id)
 
         // Get applications
@@ -76,6 +88,7 @@ export default function DashboardPage() {
 
         if (applicationsError) {
           console.error("Error fetching applications:", applicationsError)
+          throw new Error(`Failed to fetch applications: ${applicationsError.message}`)
         }
 
         // Get swipes
@@ -96,6 +109,7 @@ export default function DashboardPage() {
 
         if (swipesError) {
           console.error("Error fetching swipes:", swipesError)
+          throw new Error(`Failed to fetch swipes: ${swipesError.message}`)
         }
 
         // Get profile
@@ -107,6 +121,7 @@ export default function DashboardPage() {
 
         if (profileError && profileError.code !== "PGRST116") {
           console.error("Error fetching profile:", profileError)
+          throw new Error(`Failed to fetch profile: ${profileError.message}`)
         }
 
         // Calculate profile completion
@@ -138,6 +153,7 @@ export default function DashboardPage() {
 
         if (recommendedJobsError) {
           console.error("Error fetching recommended jobs:", recommendedJobsError)
+          throw new Error(`Failed to fetch recommended jobs: ${recommendedJobsError.message}`)
         }
 
         // Create recent activity
@@ -189,6 +205,7 @@ export default function DashboardPage() {
         })
       } catch (error) {
         console.error("Error fetching dashboard stats:", error)
+        setError(error instanceof Error ? error.message : String(error))
       } finally {
         setLoading(false)
       }
@@ -200,102 +217,6 @@ export default function DashboardPage() {
       setLoading(false)
     }
   }, [user, supabase, isInitialized])
-
-  useEffect(() => {
-    const getAIJobRecommendations = async () => {
-      if (!user || !stats) return
-
-      try {
-        // Get user profile
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single()
-
-        if (profileError) throw profileError
-
-        // Get user details
-        const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", user.id).single()
-
-        if (userError) throw userError
-
-        // Get jobs not swiped on yet
-        const { data: swipedJobIds } = await supabase.from("swipes").select("job_id").eq("user_id", user.id)
-
-        const swipedIds = swipedJobIds?.map((item) => item.job_id) || []
-
-        let query = supabase.from("jobs").select("*")
-
-        if (swipedIds.length > 0) {
-          query = query.not("id", "in", `(${swipedIds.join(",")})`)
-        }
-
-        const { data: availableJobs, error: jobsError } = await query.limit(10)
-
-        if (jobsError) throw jobsError
-
-        // If we have profile data and available jobs, enhance recommendations
-        if (profile && availableJobs && availableJobs.length > 0) {
-          // For each job, calculate a match score based on skills, title, etc.
-          const enhancedJobs = availableJobs.map((job) => {
-            // Simple matching algorithm
-            let matchScore = 50 // Base score
-
-            // Match skills
-            if (profile.skills && profile.skills.length > 0) {
-              const skillsMatch = profile.skills.filter((skill) =>
-                job.requirements.some((req) => req.toLowerCase().includes(skill.toLowerCase())),
-              ).length
-
-              if (skillsMatch > 0) {
-                matchScore += Math.min(30, skillsMatch * 10) // Up to 30 points for skills
-              }
-            }
-
-            // Match job title
-            if (profile.title && job.title.toLowerCase().includes(profile.title.toLowerCase())) {
-              matchScore += 10
-            }
-
-            // Match location preferences
-            if (
-              profile.preferred_locations &&
-              profile.preferred_locations.some((loc) => job.location.toLowerCase().includes(loc.toLowerCase()))
-            ) {
-              matchScore += 10
-            }
-
-            return {
-              id: job.id,
-              title: job.title,
-              company: job.company,
-              matchPercentage: Math.min(100, matchScore),
-            }
-          })
-
-          // Sort by match score and take top 5
-          const topRecommendations = enhancedJobs.sort((a, b) => b.matchPercentage - a.matchPercentage).slice(0, 5)
-
-          // Update stats with enhanced recommendations
-          setStats((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  recommendedJobs: topRecommendations,
-                }
-              : null,
-          )
-        }
-      } catch (error) {
-        console.error("Error getting AI job recommendations:", error)
-      }
-    }
-
-    if (user && stats) {
-      getAIJobRecommendations()
-    }
-  }, [user, stats, supabase])
 
   if (!isInitialized) {
     return (
@@ -325,7 +246,6 @@ export default function DashboardPage() {
             </Link>
           </motion.div>
         </motion.div>
-        <MainNav />
       </div>
     )
   }
@@ -334,7 +254,22 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4">
         <LoadingSpinner size="lg" />
-        <MainNav />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center p-4">
+        <Alert variant="destructive" className="max-w-md mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error Loading Dashboard</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={() => window.location.reload()}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
       </div>
     )
   }
@@ -627,7 +562,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </PageTransition>
-      <MainNav />
     </div>
   )
 }

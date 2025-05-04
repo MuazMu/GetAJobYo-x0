@@ -38,6 +38,7 @@ export function DatabaseDebug() {
     setIsChecking(true)
 
     try {
+      console.log("Checking database tables...")
       const supabase = createBrowserClient()
 
       // Check tables
@@ -53,15 +54,23 @@ export function DatabaseDebug() {
 
       // Check each table
       for (const table of Object.keys(tables)) {
-        const { data, error } = await supabase.from(table).select("count")
+        console.log(`Checking table: ${table}...`)
+        try {
+          const { data, error } = await supabase.from(table).select("count")
 
-        if (!error) {
-          tables[table as keyof typeof tables] = true
+          if (!error) {
+            tables[table as keyof typeof tables] = true
+            console.log(`Table ${table} exists`)
 
-          // Get count for jobs
-          if (table === "jobs" && data && data.length > 0) {
-            counts.jobs = data[0].count
+            // Get count for jobs
+            if (table === "jobs" && data && data.length > 0) {
+              counts.jobs = data[0].count
+            }
+          } else {
+            console.error(`Error checking table ${table}:`, error)
           }
+        } catch (tableError) {
+          console.error(`Exception checking table ${table}:`, tableError)
         }
       }
 
@@ -94,6 +103,7 @@ export function DatabaseDebug() {
     setIsInitializing(true)
 
     try {
+      console.log("Initializing database...")
       const response = await fetch("/api/init-db")
       const data = await response.json()
 
@@ -105,6 +115,7 @@ export function DatabaseDebug() {
         // Refresh status
         await checkDatabase()
       } else {
+        console.error("Database initialization failed:", data.error)
         toast({
           title: "Initialization failed",
           description: data.error || "Could not initialize database",

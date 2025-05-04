@@ -19,16 +19,32 @@ export const createBrowserClient = () => {
   // Log connection attempt for debugging
   console.log("Creating Supabase browser client with URL:", supabaseUrl)
 
-  browserClient = createClient<Database>(supabaseUrl!, supabaseAnonKey!, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storageKey: "getajobyoapp-auth",
-    },
-  })
-
-  return browserClient
+  try {
+    browserClient = createClient<Database>(supabaseUrl!, supabaseAnonKey!, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: "getajobyoapp-auth",
+      },
+      global: {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    })
+    return browserClient
+  } catch (error) {
+    console.error("Error creating Supabase client:", error)
+    throw error
+  }
 }
 
 // Create a client for server components
@@ -43,24 +59,30 @@ export const createServerClient = () => {
 // Helper function to check if Supabase is properly connected
 export const checkSupabaseConnection = async () => {
   try {
+    console.log("Testing Supabase connection...")
     const supabase = createBrowserClient()
-    // Simple ping query that doesn't depend on table existence
-    const { data, error } = await supabase.rpc("get_service_status").single()
+
+    // Try a simple query that doesn't depend on table existence
+    const { error } = await supabase
+      .from("users")
+      .select("count", { count: "exact", head: true })
+      .limit(1)
+      .maybeSingle()
 
     if (error) {
-      // Fall back to a basic query if the RPC doesn't exist
-      const { error: fallbackError } = await supabase.from("users").select("count", { count: "exact", head: true })
+      console.error("Supabase connection test failed:", error)
 
-      if (fallbackError && fallbackError.code !== "PGRST116") {
-        console.error("Supabase connection test failed:", fallbackError)
-        return { connected: false, error: fallbackError.message }
+      // Check if it's a table not found error (which means connection works but table doesn't exist)
+      if (error.code === "PGRST116") {
+        console.log("Table not found, but connection works")
+        return { connected: true }
       }
 
-      // If we get here with a PGRST116 error, it means the table doesn't exist but the connection works
-      return { connected: true }
+      return { connected: false, error: error.message }
     }
 
-    return { connected: true, data }
+    console.log("Supabase connection successful")
+    return { connected: true }
   } catch (err) {
     console.error("Unexpected error testing Supabase connection:", err)
     return { connected: false, error: String(err) }
