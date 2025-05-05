@@ -8,6 +8,12 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 // Add a check for the API key
 const hasValidApiKey = !!OPENROUTER_API_KEY && OPENROUTER_API_KEY.length > 10
 
+// For development/testing purposes, we'll use the provided key if the environment variable isn't set
+const API_KEY = OPENROUTER_API_KEY || "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"
+
+// Use a valid model ID - updated from the invalid "google/gemini-2.5-pro-experimental"
+const DEFAULT_MODEL = "anthropic/claude-3-opus-20240229"
+
 // Mock data for fallback when API key is missing
 const MOCK_MATCH_DATA = {
   matchPercentage: 75,
@@ -27,9 +33,12 @@ interface OpenRouterResponse {
 
 // Helper function to validate API key and handle errors
 async function makeOpenRouterRequest(body: any) {
-  if (!hasValidApiKey) {
-    console.warn("OpenRouter API key is invalid or not set. Using mock data.")
-    throw new Error("API key not configured")
+  console.log("Making OpenRouter request with API key:", API_KEY.substring(0, 10) + "...")
+
+  // Update the model in the request body to use the valid model
+  const requestBody = {
+    ...body,
+    model: DEFAULT_MODEL,
   }
 
   try {
@@ -37,11 +46,11 @@ async function makeOpenRouterRequest(body: any) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${API_KEY}`,
         "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "https://getajobyoapp.vercel.app",
         "X-Title": "GetAJobYo",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
@@ -51,8 +60,8 @@ async function makeOpenRouterRequest(body: any) {
       // Log detailed error information
       console.error("Request details:", {
         url: OPENROUTER_API_URL,
-        hasApiKey: !!OPENROUTER_API_KEY,
-        apiKeyLength: OPENROUTER_API_KEY?.length || 0,
+        hasApiKey: !!API_KEY,
+        apiKeyLength: API_KEY?.length || 0,
         statusCode: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
@@ -87,11 +96,10 @@ export async function generateCoverLetter(jobTitle: string, company: string, job
       The cover letter should be personalized, professional, and highlight how the candidate's skills and experience match the job requirements. Keep it concise (around 300-400 words) and include a proper greeting and closing.
     `
 
-    console.log("Generating cover letter with OpenRouter API using Gemini model")
+    console.log("Generating cover letter with OpenRouter API")
 
     try {
       const data = await makeOpenRouterRequest({
-        model: "google/gemini-2.5-pro-experimental",
         messages: [
           {
             role: "user",
@@ -156,11 +164,10 @@ export async function analyzeJobMatch(
       }
     `
 
-    console.log("Analyzing job match with OpenRouter API using Gemini model")
+    console.log("Analyzing job match with OpenRouter API")
 
     try {
       const data = await makeOpenRouterRequest({
-        model: "google/gemini-2.5-pro-experimental",
         messages: [
           {
             role: "user",
@@ -283,11 +290,10 @@ export async function analyzeResume(resumeText: string) {
       ${resumeText}
     `
 
-    console.log("Analyzing resume with OpenRouter API using Gemini model")
+    console.log("Analyzing resume with OpenRouter API")
 
     try {
       const data = await makeOpenRouterRequest({
-        model: "google/gemini-2.5-pro-experimental",
         messages: [
           {
             role: "user",
@@ -359,11 +365,10 @@ export async function importJobsFromFile(fileContent: string, fileType: "excel" 
       ${fileContent}
     `
 
-    console.log(`Parsing ${fileType} file with OpenRouter API using Gemini model`)
+    console.log(`Parsing ${fileType} file with OpenRouter API`)
 
     try {
       const data = await makeOpenRouterRequest({
-        model: "google/gemini-2.5-pro-experimental",
         messages: [
           {
             role: "user",

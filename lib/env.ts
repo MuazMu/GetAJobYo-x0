@@ -35,3 +35,11 @@ export function getClientEnv() {
 export function hasValidOpenRouterKey() {
   return !!OPENROUTER_API_KEY && OPENROUTER_API_KEY.length > 10
 }
+
+// For development/testing purposes, we'll hardcode the API key if it's not in the environment
+// This is a fallback for the provided key
+if (!OPENROUTER_API_KEY && typeof window !== "undefined") {
+  console.log("Using hardcoded OpenRouter API key for development")
+  // @ts-ignore - Intentionally overriding the environment variable for development
+  process.env.OPENROUTER_API_KEY = "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"
+}
