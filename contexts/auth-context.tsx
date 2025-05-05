@@ -1,9 +1,9 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
-import { checkSupabaseConnection } from "@/lib/supabase"
+import { checkSupabaseConnection, clearCache } from "@/lib/supabase"
 
 interface User {
   id: string
@@ -16,6 +16,7 @@ interface User {
 interface ConnectionStatus {
   connected: boolean
   error?: string
+  lastChecked: Date
 }
 
 interface AuthContextType {
@@ -27,6 +28,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: any; data: any }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ error: any }>
+  checkSupabaseConnection: () => Promise<ConnectionStatus>
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -39,30 +41,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
+  const checkConnection = useCallback(async (): Promise<ConnectionStatus> => {
+    try {
+      const status = await checkSupabaseConnection()
+      const newStatus = {
+        ...status,
+        lastChecked: new Date(),
+      }
+      setConnectionStatus(newStatus)
+      return newStatus
+    } catch (error) {
+      const errorStatus = {
+        connected: false,
+        error: String(error),
+        lastChecked: new Date(),
+      }
+      setConnectionStatus(errorStatus)
+      return errorStatus
+    }
+  }, [])
+
   // Check database connection
   useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        console.log("Checking database connection...")
-        const status = await checkSupabaseConnection()
-        console.log("Connection status:", status)
-        setConnectionStatus(status)
-      } catch (error) {
-        console.error("Error checking connection:", error)
-        setConnectionStatus({ connected: false, error: String(error) })
-      }
-    }
-
     checkConnection()
-    // Check connection every 30 seconds
-    const interval = setInterval(checkConnection, 30000)
+
+    // Check connection every 5 minutes
+    const interval = setInterval(checkConnection, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [checkConnection])
 
   useEffect(() => {
     const getUser = async () => {
       try {
-        console.log("Getting user session...")
         const {
           data: { session },
           error: sessionError,
@@ -75,8 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        console.log("Session:", session ? "Found" : "Not found")
-
         if (session) {
           try {
             const { data: userData, error } = await supabase
@@ -86,16 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .single()
 
             if (!error && userData) {
-              console.log("User data found")
               setUser({
                 id: session.user.id,
                 email: session.user.email!,
-                name: userData.name,
+                name: userData.name || userData.full_name,
                 avatar_url: userData.avatar_url,
                 role: userData.role,
               })
             } else {
-              console.log("User data not found, using auth data")
               // Fallback to just auth data if user profile not found
               setUser({
                 id: session.user.id,
@@ -104,6 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } catch (error) {
             console.error("Error fetching user data:", error)
+            // Still set the basic user info
+            setUser({
+              id: session.user.id,
+              email: session.user.email!,
+            })
           }
         }
       } catch (error) {
@@ -117,8 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getUser()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event)
-
       if (event === "SIGNED_IN" && session) {
         try {
           const { data: userData, error } = await supabase.from("users").select("*").eq("id", session.user.id).single()
@@ -127,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser({
               id: session.user.id,
               email: session.user.email!,
-              name: userData.name,
+              name: userData.name || userData.full_name,
               avatar_url: userData.avatar_url,
               role: userData.role,
             })
@@ -138,6 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: session.user.email!,
             })
           }
+
+          // Clear cache on sign in to ensure fresh data
+          clearCache()
+
+          // Force a router refresh to update the UI
+          router.refresh()
         } catch (error) {
           console.error("Error fetching user data after sign in:", error)
           // Still set the basic user info
@@ -148,6 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else if (event === "SIGNED_OUT") {
         setUser(null)
+        clearCache()
+        router.refresh()
       }
     })
 
@@ -158,44 +175,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      console.log("Signing in...")
+      setLoading(true)
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (!error) {
-        console.log("Sign in successful")
         // Force a refresh to ensure we get the latest session
         router.refresh()
-      } else {
-        console.error("Sign in error:", error)
       }
 
       return { error }
     } catch (error) {
       console.error("Unexpected error during sign in:", error)
       return { error }
+    } finally {
+      setLoading(false)
     }
   }
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
-      console.log("Signing up...")
+      setLoading(true)
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: name,
+          },
+        },
       })
 
       if (!error && data.user) {
-        console.log("Sign up successful, creating user profile")
         // Create user profile
         const { error: profileError } = await supabase.from("users").insert([
           {
             id: data.user.id,
             email,
-            name,
+            full_name: name,
             created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
         ])
 
@@ -203,30 +224,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("Error creating user profile:", profileError)
           return { error: profileError, data: null }
         }
-      } else if (error) {
-        console.error("Sign up error:", error)
+
+        // Create empty profile
+        const { error: emptyProfileError } = await supabase.from("profiles").insert([
+          {
+            id: data.user.id,
+            skills: [],
+            preferred_job_types: [],
+            preferred_locations: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ])
+
+        if (emptyProfileError) {
+          console.error("Error creating empty profile:", emptyProfileError)
+        }
       }
 
       return { error, data }
     } catch (error) {
       console.error("Unexpected error during sign up:", error)
       return { error, data: null }
+    } finally {
+      setLoading(false)
     }
   }
 
   const signOut = async () => {
     try {
-      console.log("Signing out...")
+      setLoading(true)
       await supabase.auth.signOut()
+      clearCache()
       router.refresh()
     } catch (error) {
       console.error("Error during sign out:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
   const resetPassword = async (email: string) => {
     try {
-      console.log("Requesting password reset...")
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
@@ -248,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         resetPassword,
+        checkSupabaseConnection: checkConnection,
       }}
     >
       {children}
@@ -263,5 +303,4 @@ export function useAuth() {
   return context
 }
 
-// Export as default for backward compatibility
 export default AuthProvider

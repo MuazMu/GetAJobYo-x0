@@ -9,6 +9,8 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, RefreshCw } from "lucide-react"
+import { AppHeader } from "@/components/app-header"
+import { MainNav } from "@/components/main-nav"
 
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, isInitialized, connectionStatus, checkSupabaseConnection } = useAuth()
@@ -74,5 +76,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     )
   }
 
-  return <div className="app-container">{children}</div>
+  return (
+    <div className="app-container">
+      <AppHeader />
+      <div className="app-content">{children}</div>
+      <MainNav />
+    </div>
+  )
 }

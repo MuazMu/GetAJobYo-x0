@@ -1,12 +1,11 @@
 {
-  "name": "SkillMatch",
-  "short_name": "SkillMatch",
-  "description": "Match your skills to the perfect career opportunity",
+  "name": "GetAJobYo",
+  "short_name": "GetAJobYo",
+  "description": "Find your next job with AI-powered matching",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",

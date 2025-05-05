@@ -2,26 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-tap-highlight-color: transparent;
-  overscroll-behavior: none;
-  touch-action: manipulation;
-}
-
-html,
-body {
-  height: 100%;
-  width: 100%;
-  /* Remove position: fixed that was causing scrolling issues */
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -100,15 +80,32 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-/* Mobile app styles */
-.app-container {
-  height: 100dvh;
+html,
+body {
+  height: 100%;
   width: 100%;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* App layout */
+.app-container {
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background-color: hsl(var(--background));
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .app-content {
@@ -118,53 +115,11 @@ body {
   padding-bottom: 70px; /* Space for bottom nav */
 }
 
-/* Add smooth page transitions */
-.page-transition-enter {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.page-transition-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 300ms, transform 300ms;
-}
-
-.page-transition-exit {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.page-transition-exit-active {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 300ms, transform 300ms;
-}
-
-@keyframes gradient {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradient 8s ease infinite;
-}
-
-/* Mobile swipe animations */
+/* Swipe animations */
 .swipe-card {
-  position: absolute;
+  position: relative;
   width: 100%;
-  height: 100%;
-  will-change: transform;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .swipe-left-exit {
@@ -189,33 +144,36 @@ body {
   }
 }
 
-/* Mobile-specific touch feedback */
-.touch-feedback {
-  position: relative;
-  overflow: hidden;
+/* Transitions */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
 }
 
-.touch-feedback::after {
-  content: "";
-  display: block;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.3) 10%, transparent 10.01%);
-  background-repeat: no-repeat;
-  background-position: 50%;
-  transform: scale(10, 10);
-  opacity: 0;
-  transition: transform 0.5s, opacity 0.5s;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.touch-feedback:active::after {
-  transform: scale(0, 0);
-  opacity: 0.3;
-  transition: 0s;
+/* Gradient animations */
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 8s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 /* Safe area insets for notched devices */

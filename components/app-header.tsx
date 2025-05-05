@@ -14,7 +14,7 @@ function AppHeaderComponent() {
 
   return (
     <motion.header
-      className="w-full bg-background border-b py-3 px-4 flex items-center justify-between sticky top-0 z-50"
+      className="app-header py-3 px-4 flex items-center justify-between"
       initial={{ y: -50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}

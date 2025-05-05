@@ -16,3 +16,22 @@ export function validateEnvVars() {
 
   return true
 }
+
+// Check if we're in a browser environment
+export const isBrowser = typeof window !== "undefined"
+
+// Function to get client-side environment variables
+export function getClientEnv() {
+  if (isBrowser) {
+    return {
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    }
+  }
+  return {}
+}
+
+// Function to check if OpenRouter API key is valid
+export function hasValidOpenRouterKey() {
+  return !!OPENROUTER_API_KEY && OPENROUTER_API_KEY.length > 10
+}

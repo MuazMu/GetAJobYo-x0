@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef } from "react"
+import React, { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,6 @@ export function JobCard({ job, onSwipe }: JobCardProps) {
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-200, 200], [-30, 30])
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0])
-  const cardRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const getCurrencySymbol = (currency: string) => {
@@ -95,7 +94,6 @@ export function JobCard({ job, onSwipe }: JobCardProps) {
 
   return (
     <motion.div
-      ref={cardRef}
       initial={{ scale: 0.95, opacity: 0 }}
       animate={{ scale: 1, opacity: 1, ...controls }}
       style={{ x, rotate, opacity }}
@@ -105,7 +103,7 @@ export function JobCard({ job, onSwipe }: JobCardProps) {
       onDragStart={() => setIsDragging(true)}
       onDragEnd={handleDragEnd}
       whileTap={{ cursor: "grabbing" }}
-      className="w-full touch-none cursor-grab"
+      className="swipe-card cursor-grab"
     >
       <Card className="border shadow-sm hover:shadow-md transition-all duration-200 relative">
         {isDragging && x.get() > 50 && (

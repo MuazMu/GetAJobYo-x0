@@ -1,9 +1,9 @@
 "use client"
 
 import { DialogFooter } from "@/components/ui/dialog"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { createBrowserClient } from "@/lib/supabase"
+import { createBrowserClient, clearTableCache } from "@/lib/supabase"
 import { MainNav } from "@/components/main-nav"
 import { JobCard, type Job } from "@/components/job-card"
 import { useToast } from "@/hooks/use-toast"
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, XCircle, Sparkles, AlertCircle, Filter } from "lucide-react"
+import { CheckCircle, XCircle, Sparkles, AlertCircle, Filter, RefreshCw } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -25,6 +25,7 @@ import { convertCurrency, parseSalaryRange, calculateSalaryMatch } from "@/lib/c
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ApplicationNotification } from "@/components/application-notification"
 import { AppHeader } from "@/components/app-header"
+import { hasValidOpenRouterKey } from "@/lib/env"
 
 interface JobMatch {
   matchPercentage: number
@@ -45,10 +46,12 @@ export default function JobsPage() {
   const [applyLoading, setApplyLoading] = useState(false)
   const [coverLetter, setCoverLetter] = useState("")
   const [profileComplete, setProfileComplete] = useState(false)
-  const [supabase, setSupabase] = useState(() => createBrowserClient())
+  const [supabase] = useState(() => createBrowserClient())
   const { toast } = useToast()
   const [profile, setProfile] = useState<any>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [apiKeyMissing, setApiKeyMissing] = useState(!hasValidOpenRouterKey())
   const [applicationStatus, setApplicationStatus] = useState<{
     show: boolean
     success: boolean
@@ -63,12 +66,19 @@ export default function JobsPage() {
     emailSent: false,
   })
 
-  useEffect(() => {
-    const fetchJobs = async () => {
+  const fetchJobs = useCallback(
+    async (forceRefresh = false) => {
       if (!user) return
 
       try {
         setLoading(true)
+
+        if (forceRefresh) {
+          // Clear cache for jobs and swipes tables
+          clearTableCache("jobs")
+          clearTableCache("swipes")
+        }
+
         // Get jobs that the user hasn't swiped on yet
         const { data: swipedJobIds, error: swipedJobIdsError } = await supabase
           .from("swipes")
@@ -85,7 +95,7 @@ export default function JobsPage() {
           query = query.not("id", "in", `(${swipedIds.join(",")})`)
         }
 
-        const { data, error } = await query
+        const { data, error } = await query.order("created_at", { ascending: false })
 
         if (error) throw error
 
@@ -100,62 +110,67 @@ export default function JobsPage() {
         })
       } finally {
         setLoading(false)
-      }
-
-      // Check if profile is complete
-      const checkProfileCompleteness = async () => {
-        if (!user) return
-
-        try {
-          // Get user profile
-          const { data: profile, error: profileError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", user.id)
-            .single()
-
-          if (profileError) throw profileError
-
-          setProfile(profile)
-
-          // Check if required fields are filled
-          const requiredFields = [
-            profile?.title,
-            profile?.bio,
-            profile?.skills?.length > 0,
-            profile?.experience_years,
-            profile?.education,
-            profile?.location,
-          ]
-
-          const isComplete = requiredFields.filter(Boolean).length >= 4 // At least 4 fields must be filled
-          setProfileComplete(isComplete)
-        } catch (error) {
-          console.error("Error checking profile completeness:", error)
-          setProfileComplete(false)
+        if (forceRefresh) {
+          setRefreshing(false)
         }
       }
+    },
+    [user, supabase, toast],
+  )
 
-      checkProfileCompleteness()
+  const checkProfileCompleteness = useCallback(async () => {
+    if (!user) return
+
+    try {
+      // Get user profile
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single()
+
+      if (profileError) throw profileError
+
+      setProfile(profile)
+
+      // Check if required fields are filled
+      const requiredFields = [
+        profile?.title,
+        profile?.bio,
+        profile?.skills?.length > 0,
+        profile?.experience_years,
+        profile?.education,
+        profile?.location,
+      ]
+
+      const isComplete = requiredFields.filter(Boolean).length >= 4 // At least 4 fields must be filled
+      setProfileComplete(isComplete)
+    } catch (error) {
+      console.error("Error checking profile completeness:", error)
+      setProfileComplete(false)
     }
+  }, [user, supabase])
 
+  useEffect(() => {
     if (isInitialized && user) {
       fetchJobs()
+      checkProfileCompleteness()
     } else if (isInitialized && !user) {
       setLoading(false)
     }
-  }, [user, supabase, toast, isInitialized])
+  }, [isInitialized, user, fetchJobs, checkProfileCompleteness])
 
-  useEffect(() => {
-    const analyzeCurrentJob = async () => {
-      if (!user || !jobs.length || currentJobIndex >= jobs.length) return
+  const analyzeCurrentJob = useCallback(async () => {
+    if (!user || !jobs.length || currentJobIndex >= jobs.length) return
 
-      try {
-        setMatchLoading(true)
-        const currentJob = jobs[currentJobIndex]
+    try {
+      setMatchLoading(true)
+      const currentJob = jobs[currentJobIndex]
 
-        // Get user profile
-        const { data: profile, error: profileError } = await supabase
+      // Get user profile if not already loaded
+      let userProfile = profile
+      if (!userProfile) {
+        const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", user.id)
@@ -163,25 +178,28 @@ export default function JobsPage() {
 
         if (profileError) throw profileError
 
-        // Get user details
-        const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", user.id).single()
+        userProfile = profileData
+        setProfile(profileData)
+      }
 
-        if (userError) throw userError
+      // Get user details if needed
+      const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", user.id).single()
 
-        const userProfile = { ...userData, ...profile }
+      if (userError) throw userError
 
-        console.log("Analyzing job match for:", currentJob.title)
+      const combinedProfile = { ...userData, ...userProfile }
 
+      try {
         // Analyze job match
         const match = await analyzeJobMatch(
           currentJob.title,
           currentJob.description,
           currentJob.requirements,
-          userProfile,
+          combinedProfile,
         )
 
         // Enhance match with salary and currency preferences
-        if (profile?.salary_expectation && profile?.preferred_currency) {
+        if (userProfile?.salary_expectation && userProfile?.preferred_currency) {
           const { min: salaryMin, max: salaryMax } = parseSalaryRange(currentJob.salary_range)
 
           const salaryMatchScore = calculateSalaryMatch(
@@ -189,8 +207,8 @@ export default function JobsPage() {
             salaryMax,
             currentJob.currency || "USD",
             currentJob.rate_period || "yearly",
-            profile.salary_expectation,
-            profile.preferred_currency,
+            userProfile.salary_expectation,
+            userProfile.preferred_currency,
           )
 
           // Adjust the overall match score by considering the salary match
@@ -210,21 +228,51 @@ export default function JobsPage() {
         setJobMatch(match)
       } catch (error) {
         console.error("Error analyzing job match:", error)
-        setJobMatch({
-          matchPercentage: 50,
-          strengths: ["Unable to analyze strengths"],
-          gaps: ["Unable to analyze gaps"],
-          summary: "Error analyzing job match",
-        })
-      } finally {
-        setMatchLoading(false)
-      }
-    }
 
+        // Check if it's an API key error
+        if (
+          String(error).includes("API key not configured") ||
+          String(error).includes("401") ||
+          String(error).includes("auth credentials")
+        ) {
+          setApiKeyMissing(true)
+
+          // Set a basic match with a note about the API key
+          setJobMatch({
+            matchPercentage: 70,
+            strengths: ["Based on job title match", "Based on your profile skills"],
+            gaps: ["Detailed AI analysis unavailable"],
+            summary:
+              "Basic match analysis only. AI-powered detailed analysis unavailable due to API configuration issues.",
+          })
+        } else {
+          // Set a generic error match
+          setJobMatch({
+            matchPercentage: 50,
+            strengths: ["Unable to analyze strengths in detail"],
+            gaps: ["Unable to analyze gaps in detail"],
+            summary: "Error analyzing job match. Basic match estimate provided.",
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error in analyzeCurrentJob:", error)
+      setJobMatch({
+        matchPercentage: 50,
+        strengths: ["Unable to analyze strengths"],
+        gaps: ["Unable to analyze gaps"],
+        summary: "Error analyzing job match",
+      })
+    } finally {
+      setMatchLoading(false)
+    }
+  }, [jobs, currentJobIndex, user, supabase, profile])
+
+  useEffect(() => {
     if (jobs.length > 0 && currentJobIndex < jobs.length) {
       analyzeCurrentJob()
     }
-  }, [jobs, currentJobIndex, user, supabase])
+  }, [jobs, currentJobIndex, analyzeCurrentJob])
 
   const handleSwipe = async (jobId: string, direction: "left" | "right") => {
     if (!user) return
@@ -235,6 +283,7 @@ export default function JobsPage() {
         user_id: user.id,
         job_id: jobId,
         direction,
+        created_at: new Date().toISOString(),
       })
 
       if (swipeError) throw swipeError
@@ -290,9 +339,27 @@ export default function JobsPage() {
           })
         } catch (error) {
           console.error("Error in auto-apply:", error)
+
+          // Create a fallback cover letter if API fails
+          const fallbackCoverLetter = `
+Dear Hiring Manager at ${currentJob.company},
+
+I am writing to express my interest in the ${currentJob.title} position at ${currentJob.company}. With my background and skills, I believe I would be a valuable addition to your team.
+
+[This is a fallback cover letter due to an API error. Please check your OpenRouter API key configuration.]
+
+I look forward to the opportunity to discuss how my skills and experience align with your needs.
+
+Sincerely,
+${user.name || "The Candidate"}
+          `
+
+          setCoverLetter(fallbackCoverLetter)
+          setShowApplyDialog(true)
+
           setApplicationStatus({
             show: true,
-            success: false,
+            success: true,
             jobTitle: currentJob.title,
             company: currentJob.company,
             emailSent: false,
@@ -313,6 +380,11 @@ export default function JobsPage() {
         variant: "destructive",
       })
     }
+  }
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    fetchJobs(true)
   }
 
   const currentJob = jobs[currentJobIndex]
@@ -337,15 +409,14 @@ export default function JobsPage() {
           <h2 className="text-2xl font-bold mb-4">Please Sign In</h2>
           <p className="text-muted-foreground mb-6">You need to sign in to view and apply for jobs</p>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <a
+            <Link
               href="/login"
               className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
             >
               Sign In
-            </a>
+            </Link>
           </motion.div>
         </motion.div>
-        <MainNav />
       </div>
     )
   }
@@ -375,6 +446,15 @@ export default function JobsPage() {
                   <Button
                     variant="outline"
                     size="icon"
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="relative"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
                     onClick={() => setShowFilters(!showFilters)}
                     className={showFilters ? "bg-primary/10" : ""}
                   >
@@ -383,6 +463,26 @@ export default function JobsPage() {
                 </motion.div>
               </div>
             </div>
+
+            {apiKeyMissing && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="mb-6 w-full"
+              >
+                <Alert variant="warning">
+                  <AlertTitle className="flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    API Configuration Issue
+                  </AlertTitle>
+                  <AlertDescription>
+                    The OpenRouter API key is missing or invalid. Some AI features like detailed job matching and cover
+                    letter generation will use fallback options.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
 
             {!profileComplete && (
               <motion.div
@@ -430,6 +530,7 @@ export default function JobsPage() {
                               setJobs(originalJobs.filter((job) => job.currency === value))
                             }
                             setCurrentJobIndex(0)
+                            setJobMatch(null)
                           }}
                         >
                           <SelectTrigger id="filter-currency">
@@ -460,6 +561,7 @@ export default function JobsPage() {
                               setJobs(originalJobs.filter((job) => job.rate_period === value))
                             }
                             setCurrentJobIndex(0)
+                            setJobMatch(null)
                           }}
                         >
                           <SelectTrigger id="filter-period">
@@ -488,7 +590,7 @@ export default function JobsPage() {
                               const [min, max] = value.split("-").map(Number)
                               setJobs(
                                 originalJobs.filter((job) => {
-                                  const { min: jobMin, max: jobMax } = parseSalaryRange(job.salary_range)
+                                  const { min: jobMin } = parseSalaryRange(job.salary_range)
                                   // Convert to user's preferred currency for comparison
                                   const convertedMin = convertCurrency(
                                     jobMin,
@@ -500,6 +602,7 @@ export default function JobsPage() {
                               )
                             }
                             setCurrentJobIndex(0)
+                            setJobMatch(null)
                           }}
                         >
                           <SelectTrigger id="filter-salary">
@@ -534,7 +637,20 @@ export default function JobsPage() {
                     transition={{ duration: 0.5 }}
                   >
                     <h2 className="text-xl font-semibold mb-2">No more jobs</h2>
-                    <p className="text-muted-foreground">Check back later for new opportunities</p>
+                    <p className="text-muted-foreground mb-4">Check back later for new opportunities</p>
+                    <Button onClick={handleRefresh} disabled={refreshing}>
+                      {refreshing ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Refreshing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Refresh Jobs
+                        </>
+                      )}
+                    </Button>
                   </motion.div>
                 ) : currentJobIndex >= jobs.length ? (
                   <motion.div
@@ -544,7 +660,20 @@ export default function JobsPage() {
                     transition={{ duration: 0.5 }}
                   >
                     <h2 className="text-xl font-semibold mb-2">You've seen all jobs</h2>
-                    <p className="text-muted-foreground">Check back later for new opportunities</p>
+                    <p className="text-muted-foreground mb-4">Check back later for new opportunities</p>
+                    <Button onClick={handleRefresh} disabled={refreshing}>
+                      {refreshing ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Refreshing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Refresh Jobs
+                        </>
+                      )}
+                    </Button>
                   </motion.div>
                 ) : (
                   <AnimatePresence mode="wait">
@@ -690,7 +819,9 @@ export default function JobsPage() {
               AI-Generated Cover Letter
             </DialogTitle>
             <DialogDescription>
-              The AI has automatically generated a cover letter for your job application
+              {apiKeyMissing
+                ? "A basic cover letter has been generated. For better results, please configure the OpenRouter API key."
+                : "The AI has automatically generated a cover letter for your job application"}
             </DialogDescription>
           </DialogHeader>
 
